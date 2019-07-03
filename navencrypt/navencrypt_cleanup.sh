@@ -30,17 +30,14 @@ PATH=/usr/bin:/usr/sbin:/bin:/sbin
 
 # Function to print the help screen.
 print_help() {
-  printf 'Usage:  %s --navpass <password> --mountpoint <mountpoint> --emountpoint <emountpoint> --category <category>\n' "$1"
+  printf 'Usage:  %s --mountpoint <mountpoint>\n' "$1"
   printf '\n'
-  printf '         -n|--navpass          First password used to encrypt the local Navigator Encrypt configuration.\n'
-  printf '         -2|--navpass2         Second password used to encrypt the local Navigator Encrypt configuration.  This parameter is not needed for the single-passphrase key type.\n'
-  printf '         -m|--mountpoint       Mountpoint of the source filesystem.\n'
-  printf '         -e|--emountpoint      Mountpoint of the encrypted filesystem.\n'
-  printf '         -c|--category         Category to be used for the encryption zone.\n'
+  printf '         -m|--mountpoint       Mountpoint of the unencrypted filesystem.\n'
+  printf '         -g|--volumegroup      Volume group as optionally specified earlier in navencrypt_evacuate.sh.\n'
   printf '        [-h|--help]\n'
   printf '        [-v|--version]\n'
   printf '\n'
-  printf '   ex.  %s --navpass "mypasssword" --mountpoint /data/0 --emountpoint /navencrypt/0 --category data\n' "$1"
+  printf '   ex.  %s --mountpoint /data/2\n' "$1"
   exit 1
 }
 
@@ -70,31 +67,19 @@ check_root() {
 # Process arguments.
 while [[ $1 = -* ]]; do
   case $1 in
-    -n|--navpass)
-      shift
-      NAVPASS=$1
-      ;;
-    -2|--navpass2)
-      shift
-      NAVPASS2=$1
-      ;;
     -m|--mountpoint)
       shift
       MOUNTPOINT=$1
       ;;
-    -e|--emountpoint)
+    -g|--volumegroup)
       shift
-      EMOUNTPOINT=$1
-      ;;
-    -c|--category)
-      shift
-      CATEGORY=$1
+      VOLUMEGROUP=$1
       ;;
     -h|--help)
       print_help "$(basename "$0")"
       ;;
     -v|--version)
-      printf '\tMove data onto Navigator Encrypt encrypted storage.\n'
+      printf '\tPerform LVM-related cleanup after the navigator_move.sh script..\n'
       exit 0
       ;;
     *)
@@ -108,39 +93,27 @@ echo "**************************************************************************
 echo "*** $(basename "$0")"
 echo "********************************************************************************"
 # Check to see if we have no parameters.
-if [[ -z "$NAVPASS" ]]; then print_help "$(basename "$0")"; fi
 if [[ -z "$MOUNTPOINT" ]]; then print_help "$(basename "$0")"; fi
-if [[ -z "$EMOUNTPOINT" ]]; then print_help "$(basename "$0")"; fi
-if [[ -z "$CATEGORY" ]]; then print_help "$(basename "$0")"; fi
 
 # Lets not bother continuing unless we have the privs to do something.
 check_root
 
 # main
-set -u
 umask 022
-
-if [ -f /etc/navencrypt/keytrustee/clientname ]; then
-  if [ -d "$MOUNTPOINT" ]; then
-    if [ -d "$EMOUNTPOINT" ]; then
-      echo "Moving data from ${MOUNTPOINT} to ${EMOUNTPOINT} for encryption..."
-      printf -v NAVPASS_ANSWERS "$NAVPASS\n$NAVPASS2"
-      echo "$NAVPASS_ANSWERS" |
-      navencrypt-move encrypt "@${CATEGORY}" "$MOUNTPOINT" "$EMOUNTPOINT"
-    else
-      printf '** ERROR: Destination mountpoint %s is not a directory. Exiting...\n' "$EMOUNTPOINT"
-      exit 5
-    fi
-  else
-    printf '** ERROR: Source mountpoint %s is not a directory. Exiting...\n' "$MOUNTPOINT"
-    exit 4
-  fi
-else
-  printf '** WARNING: This host is not yet registered.  Skipping...\n'
+if [ ! -f /etc/navencrypt/keytrustee/clientname ]; then
+  echo "** WARNING: This host is not yet registered.  Skipping..."
   exit 3
 fi
 
-# Final move in the case that LVM was utilized
-echo "** Final move of data from ${MOUNTPOINT}tmp to ${EMOUNTPOINT}..."
-mv ${MOUNTPOINT}tmp/* ${EMOUNTPOINT}/${CATEGORY}${MOUNTPOINT}
+CURRENTVOL=`basename ${MOUNTPOINT}`
+
+set -euo pipefail
+echo "** Performing cleanup of logical volumes and mount points..."
+# shellcheck disable=SC2174
+umount ${MOUNTPOINT}backup
+umount ${MOUNTPOINT}tmp
+rmdir ${MOUNTPOINT}backup
+rmdir ${MOUNTPOINT}tmp
+lvremove -f ${VOLUMEGROUP}/${CURRENTVOL}backuplv
+lvremove -f ${VOLUMEGROUP}/${CURRENTVOL}tmplv
 

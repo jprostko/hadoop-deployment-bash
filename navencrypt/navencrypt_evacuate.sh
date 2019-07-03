@@ -33,6 +33,8 @@ print_help() {
   printf 'Usage:  %s --mountpoint <mountpoint>\n' "$1"
   printf '\n'
   printf '         -m|--mountpoint       Mountpoint of the unencrypted filesystem.\n'
+  printf '         -g|--volumegroup      Volume group to create a logical volume with if using LVM for scratch space.\n'
+  printf '         -s|--volumesize       Volume size in GiB to create the two needed logical volumes if using LVM.\n'
   printf '        [-h|--help]\n'
   printf '        [-v|--version]\n'
   printf '\n'
@@ -69,6 +71,14 @@ while [[ $1 = -* ]]; do
     -m|--mountpoint)
       shift
       MOUNTPOINT=$1
+      ;;
+    -g|--volumegroup)
+      shift
+      VOLUMEGROUP=$1
+      ;;
+    -s|--volumesize)
+      shift
+      VOLUMESIZE=$1
       ;;
     -h|--help)
       print_help "$(basename "$0")"
@@ -127,26 +137,48 @@ if ! echo "$DEVICE" | grep -q ^/dev/sd ;then
   echo "** ERROR: ${DEVICE} is not an sd device. Exiting..."
   exit 7
 fi
-# Add a check to make sure there is not another partition on the device (ie rootfs on sda1 with data on sda2).
-# Add a check to make sure there is enough space in /data
-# Add a check to not move the data again (idempotent).
-_USED=$(df "$MOUNTPOINT" | awk '$3~/^[0-9]/{print $3}')
-_FREE=$(df "${MOUNTPOINT}/.." | awk '$4~/^[0-9]/{print $4}')
-if [ "$_FREE" -lt "$_USED" ]; then
-  echo "** ERROR: ${MOUNTPOINT} does not have enough space for data in %s. Exiting..." "$(realpath "${MOUNTPOINT}/..")"
-  exit 9
-fi
 
 set -euo pipefail
+
+CURRENTVOL=`basename ${MOUNTPOINT}`
+
+# Creating backup LV for this data
+if lvs | grep -q ${CURRENTVOL}backuplv
+then
+  echo "** ERROR: The ${CURRENTVOL}backuplv logical volume already exists."
+  exit 1
+else
+  echo "** Creating the ${CURRENTVOL}backuplv logical volume..."
+  lvcreate -Zy -Wy --yes -n ${CURRENTVOL}backuplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
+  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}backuplv
+  mkdir ${MOUNTPOINT}backup
+  echo "** Mounting ${CURRENTVOL}backuplv to ${MOUNTPOINT}backup..."
+  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}backuplv ${MOUNTPOINT}backup
+fi
+
+# Creating temporary LV for this data
+if lvs | grep -q ${CURRENTVOL}tmplv
+then
+  echo "** ERROR: The ${CURRENTVOL}tmplv logical volume already exists."
+  exit 1
+else
+  echo "** Creating the ${CURRENTVOL}tmplv logical volume..."
+  lvcreate -Zy -Wy --yes -n ${CURRENTVOL}tmplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
+  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}tmplv
+  mkdir ${MOUNTPOINT}tmp
+  echo "** Mounting ${CURRENTVOL}tmplv to ${MOUNTPOINT}tmp..."
+  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}tmplv ${MOUNTPOINT}tmp
+fi
+
+echo "** Copying backup of ${MOUNTPOINT} to ${MOUNTPOINT}backup..."
+cp -pr ${MOUNTPOINT}/* ${MOUNTPOINT}backup
+
 echo "** Moving data off of ${MOUNTPOINT}..."
 # shellcheck disable=SC2174
-mkdir -p -m 0755 "${MOUNTPOINT}tmp"
 mv "${MOUNTPOINT}/"* "${MOUNTPOINT}tmp/"
 umount "$MOUNTPOINT"
-sed -e "/${MOUNTPOINT} /d" -i /etc/fstab
+sed -e "/${ESCMOUNTPOINT} /d" -i /etc/fstab
 chattr -i "$MOUNTPOINT"
-rmdir "$MOUNTPOINT"
-mv "${MOUNTPOINT}tmp" "$MOUNTPOINT"
 
 echo "** Wiping the device to prepare it for navencrypt-prepare..."
 dd if=/dev/zero of="$DEVICE" bs=1M count=10
