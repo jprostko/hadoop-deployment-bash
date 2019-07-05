@@ -105,7 +105,7 @@ if [ ! -f /etc/navencrypt/keytrustee/clientname ]; then
   exit 3
 fi
 
-CURRENTVOL=`basename ${MOUNTPOINT}`
+CURRENTVOLUME=`basename ${MOUNTPOINT}`
 
 set -euo pipefail
 echo "** Performing cleanup of logical volumes and mount points..."
@@ -114,6 +114,6 @@ umount ${MOUNTPOINT}backup
 umount ${MOUNTPOINT}tmp
 rmdir ${MOUNTPOINT}backup
 rmdir ${MOUNTPOINT}tmp
-lvremove -f ${VOLUMEGROUP}/${CURRENTVOL}backuplv
-lvremove -f ${VOLUMEGROUP}/${CURRENTVOL}tmplv
+lvremove -f ${VOLUMEGROUP}/${CURRENTVOLUME}backuplv
+lvremove -f ${VOLUMEGROUP}/${CURRENTVOLUME}tmplv
 

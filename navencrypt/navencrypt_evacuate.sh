@@ -140,34 +140,34 @@ fi
 
 set -euo pipefail
 
-CURRENTVOL=`basename ${MOUNTPOINT}`
+CURRENTVOLUME=`basename ${MOUNTPOINT}`
 
 # Creating backup LV for this data
-if lvs | grep -q ${CURRENTVOL}backuplv
+if lvs | grep -q ${CURRENTVOLUME}backuplv
 then
-  echo "** ERROR: The ${CURRENTVOL}backuplv logical volume already exists."
+  echo "** ERROR: The ${CURRENTVOLUME}backuplv logical volume already exists."
   exit 1
 else
-  echo "** Creating the ${CURRENTVOL}backuplv logical volume..."
-  lvcreate -Zy -Wy --yes -n ${CURRENTVOL}backuplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
-  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}backuplv
+  echo "** Creating the ${CURRENTVOLUME}backuplv logical volume..."
+  lvcreate -Zy -Wy --yes -n ${CURRENTVOLUME}backuplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
+  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}backuplv
   mkdir ${MOUNTPOINT}backup
-  echo "** Mounting ${CURRENTVOL}backuplv to ${MOUNTPOINT}backup..."
-  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}backuplv ${MOUNTPOINT}backup
+  echo "** Mounting ${CURRENTVOLUME}backuplv to ${MOUNTPOINT}backup..."
+  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}backuplv ${MOUNTPOINT}backup
 fi
 
 # Creating temporary LV for this data
-if lvs | grep -q ${CURRENTVOL}tmplv
+if lvs | grep -q ${CURRENTVOLUME}tmplv
 then
-  echo "** ERROR: The ${CURRENTVOL}tmplv logical volume already exists."
+  echo "** ERROR: The ${CURRENTVOLUME}tmplv logical volume already exists."
   exit 1
 else
-  echo "** Creating the ${CURRENTVOL}tmplv logical volume..."
-  lvcreate -Zy -Wy --yes -n ${CURRENTVOL}tmplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
-  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}tmplv
+  echo "** Creating the ${CURRENTVOLUME}tmplv logical volume..."
+  lvcreate -Zy -Wy --yes -n ${CURRENTVOLUME}tmplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
+  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}tmplv
   mkdir ${MOUNTPOINT}tmp
-  echo "** Mounting ${CURRENTVOL}tmplv to ${MOUNTPOINT}tmp..."
-  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOL}tmplv ${MOUNTPOINT}tmp
+  echo "** Mounting ${CURRENTVOLUME}tmplv to ${MOUNTPOINT}tmp..."
+  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}tmplv ${MOUNTPOINT}tmp
 fi
 
 echo "** Copying backup of ${MOUNTPOINT} to ${MOUNTPOINT}backup..."
