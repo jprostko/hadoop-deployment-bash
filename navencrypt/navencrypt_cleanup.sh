@@ -110,10 +110,7 @@ CURRENTVOLUME=`basename ${MOUNTPOINT}`
 set -euo pipefail
 echo "** Performing cleanup of logical volumes and mount points..."
 # shellcheck disable=SC2174
-umount ${MOUNTPOINT}backup
 umount ${MOUNTPOINT}tmp
-rmdir ${MOUNTPOINT}backup
 rmdir ${MOUNTPOINT}tmp
-lvremove -f ${VOLUMEGROUP}/${CURRENTVOLUME}backuplv
 lvremove -f ${VOLUMEGROUP}/${CURRENTVOLUME}tmplv
 

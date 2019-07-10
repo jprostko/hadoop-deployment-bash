@@ -142,20 +142,6 @@ set -euo pipefail
 
 CURRENTVOLUME=`basename ${MOUNTPOINT}`
 
-# Creating backup LV for this data
-if lvs | grep -q ${CURRENTVOLUME}backuplv
-then
-  echo "** ERROR: The ${CURRENTVOLUME}backuplv logical volume already exists."
-  exit 1
-else
-  echo "** Creating the ${CURRENTVOLUME}backuplv logical volume..."
-  lvcreate -Zy -Wy --yes -n ${CURRENTVOLUME}backuplv -L ${VOLUMESIZE}G ${VOLUMEGROUP}
-  mkfs.xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}backuplv
-  mkdir ${MOUNTPOINT}backup
-  echo "** Mounting ${CURRENTVOLUME}backuplv to ${MOUNTPOINT}backup..."
-  mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}backuplv ${MOUNTPOINT}backup
-fi
-
 # Creating temporary LV for this data
 if lvs | grep -q ${CURRENTVOLUME}tmplv
 then
@@ -169,9 +155,6 @@ else
   echo "** Mounting ${CURRENTVOLUME}tmplv to ${MOUNTPOINT}tmp..."
   mount -t xfs /dev/${VOLUMEGROUP}/${CURRENTVOLUME}tmplv ${MOUNTPOINT}tmp
 fi
-
-echo "** Copying backup of ${MOUNTPOINT} to ${MOUNTPOINT}backup..."
-cp -pr ${MOUNTPOINT}/* ${MOUNTPOINT}backup
 
 echo "** Moving data off of ${MOUNTPOINT}..."
 # shellcheck disable=SC2174
